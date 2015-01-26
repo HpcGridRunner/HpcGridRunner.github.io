@@ -281,3 +281,67 @@ Be sure to have http://hmmer.janelia.org/[hmmer3] and ftp://ftp.ebi.ac.uk/pub/da
 
 I can run a Pfam search like so:
 
+        ./BioIfx/hpc_FASTA_GridRunner.pl \
+        --cmd_template "hmmscan --cpu 8 --domtblout __QUERY_FILE__.domtblout /seq/RNASEQ/DBs/PFAM/current/Pfam-A.hmm __QUERY_FILE__" \
+        --query_fasta test.pep \
+        -G ../hpc_conf/BroadInst_LSF.test.conf \
+        -N 10 -O test_pfam_search
+
+which reports to the terminal:
+
+  Sequences to search: test_pfam_search/grp_0001/1.fa test_pfam_search/grp_0001/2.fa test_pfam_search/grp_0001/3.fa test_pfam_search/grp_0001/4.fa test_pfam_search/grp_0001/5.fa test_pfam_search/grp_0001/6.fa test_pfam_search/grp_0001/7.fa test_pfam_search/grp_0001/8.fa test_pfam_search/grp_0001/9.fa test_pfam_search/grp_0001/10.fa
+  There are 10 jobs to run.
+  $VAR1 = {
+          'mount_test' => 'T',
+          'grid' => 'LSF',
+          'cmd' => 'bsub -q regevlab -R "rusage[mem=2]" ',
+          'max_nodes' => '500',
+          'cmds_per_node' => '1'
+        };
+  CMDS: 10 / 10  [10/500 nodes in use]   
+  * All cmds submitted to grid.  Now waiting for them to finish.
+  CMDS: 10 / 10  [0/500 nodes in use]   
+  * All nodes completed.  Now auditing job completion status values
+  All commands completed successfully.
+  Finished.
+
+  All commands completed successfully on the computing grid.
+  SUCCESS:  all commands completed succesfully. :)
+
+
+I find a 'test_pfam_search/' directory created and that has the following contents:
+
+  bhaas@venustum $ find test_pfam_search
+  test_pfam_search
+  test_pfam_search/grp_0001
+  test_pfam_search/grp_0001/5.fa.domtblout
+  test_pfam_search/grp_0001/3.fa.domtblout
+  test_pfam_search/grp_0001/4.fa.domtblout
+  test_pfam_search/grp_0001/10.fa.ERR
+  test_pfam_search/grp_0001/2.fa
+  test_pfam_search/grp_0001/1.fa.ERR
+  test_pfam_search/grp_0001/6.fa.domtblout
+  test_pfam_search/grp_0001/5.fa.ERR
+  test_pfam_search/grp_0001/3.fa
+  test_pfam_search/grp_0001/8.fa.ERR
+  test_pfam_search/grp_0001/8.fa.domtblout
+  test_pfam_search/grp_0001/1.fa.domtblout
+  test_pfam_search/grp_0001/6.fa.ERR
+  test_pfam_search/grp_0001/7.fa.ERR
+  test_pfam_search/grp_0001/10.fa.OUT
+  test_pfam_search/grp_0001/2.fa.domtblout
+  test_pfam_search/grp_0001/9.fa.domtblout
+  ...
+
+In this case, the command template directed hmmscan to create a .domtblout file for each .fa sequence set containing the Pfam domain hits.  We can capture these outputs and put them in a single file like so:
+
+   find test_pfam_search/ -name "*.fa.domtblout" -exec cat {} \; > all_pfam_results.out
+
+
+and now I have all the pfam domain hits in a single file for use in downstream analyses or applications.
+
+
+== Questions, comments, etc? ==
+
+Please use the google group: https://groups.google.com/forum/\#!forum/hpcgridrunner[https://groups.google.com/forum/#!forum/hpcgridrunner]
+
