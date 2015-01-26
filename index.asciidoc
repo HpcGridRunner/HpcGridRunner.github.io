@@ -1,0 +1,283 @@
+= HPC GridRunner =
+
+HPC GridRunner is a simple command-line interface to high throughput computing using a variety of different grid computing platforms, including LSF, SGE, SLURM, and PBS.  You simply create a file containing the many unix commands that you want to have executed, where each command had no dependencies on any other command, and HPC GridRunner will batch and launch the commands for execution on your compute farm.  The execution status (success, failure) is tracked for each command, so that if any individual command should fail, it will be flagged and identified to the user for further investigation.
+
+HPC GridRunner includes generic support for Bioinformatics applications (see below), where the user would like to run some bioinformatics application on each sequence included in a large multi-fasta file, such as a blast search or a hmmer Pfam search.  HPC GridRunner facilitates this by batching sequences to your liking and executing each blast or pfam search in parallel.
+
+== Installing HPC GridRunner ==
+
+Download HPC GridRunner https://github.com/HpcGridRunner/HpcGridRunner.github.io/releases[here].
+
+The system runs as a set of Perl scripts, so there's no need to compile anything.
+
+Additional support is included to leverage http://parafly.sourceforge.net/[ParaFly] to attempt to re-execute any grid-failed commands locally (from within the HpcGridRunner process instead of on the computing grid node where jobs were dispatched).  This is useful in cases where some small subset of grid jobs might time-out or need more RAM than allocated on the grid node. If you want to leverage this option, be sure to also install http://parafly.sourceforge.net/[ParaFly].
+
+== Configuration ==
+
+HPC GridRunner uses a configuration file system to determine how to interact with your grid computing platform.  Example configuration files can be found in the included 'hpc_conf/' directory.  Each conf file includes just a handful of attributes that enable the system to work, including:
+
+* grid : the type of grid computing platform being used. (LSF, SGE, PBS, or SLURM)  See an example conf for your system.
+* cmd : the basic structure of a job submission (ie. using qsub or bsub), indicating the queue to submit to, memory cap, walltime, etc., basically everything that would show up in your command line to submit the job to the grid sans the actual command that would be executed on the node.
+* max_nodes : the maximum number of nodes to try to leverage simultaneously on your grid platform. You might set this to a low number if you dont want to oversubscribe to resources, particularly if you have high-RAM requirements.  This is up to you. You could leave it as a high number and just let the grid platform itself determine how many jobs should RUN vs. PEND.  The total (RUN+PEND) will equal this max_nodes parameter.
+* cmds_per_node : your unix commands to be run by HPC GridRunner will be batched according to this number of commands per job submission.  So, if you set this to 100, then all 100 commands will be submitted in a single bsub or qsub to the grid. Note, although they are batched, each command will be separately monitored by HPC GridRunner for success/failure status.
+
+
+The contents of an example configuration file 'hpc_conf/Broad_LSF.regev.100.conf' is shown below:
+
+ #-------------------------------------------------------------------------------------------
+ # grid type: 
+ grid=LSF
+ 
+ # template for a grid submission
+ cmd=bsub -q regevlab -R "rusage[mem=10]"
+ # note -e error.file -o out.file are set internally, so dont set them in the above cmd. 
+ 
+ # uses the LSF feature to pre-exec and check that the file system is mounted before executing.
+ # this helps when you have some misbehaving grid nodes that lost certain file mounts.
+ mount_test=T
+ 
+ ##########################################################################################
+ # settings below configure the Trinity job submission system, not tied to the grid itself.
+ ##########################################################################################
+ 
+ # number of grid submissions to be maintained at steady state by the Trinity submission system 
+ max_nodes=500
+ 
+ # number of commands that are batched into a single grid submission job.
+ cmds_per_node=100
+
+ #--------------------------------------------------------------------------------------------
+
+
+
+== Running HPC GridRunner ==
+
+The simplest way to run HPC GridRunner is to have a file containing a list of unix commands to be executed, and to give that file as a parameter to the 'hpc_cmds_GridRunner.pl' script.  Usage is shown below:
+
+  ./hpc_cmds_GridRunner.pl 
+
+ ################################################################
+ # Required:
+ #
+ #  -c <string>        file containing list of commands
+ #  --grid_conf|G <string>   grid config file
+ #
+ # Optional:
+ #  
+ #  --parafly          if any grid commands fail on the grid, try rerunning
+ #                     them locally using ParaFly (second chance to succeed).
+ #                     This requires that ParaFly be installed and in your PATH
+ #                     Get ParaFly here: http://parafly.sourceforge.net/
+ #  
+ ####################################################################
+
+
+For example, imagine a command file called 'myCommands.txt' that contains the following:
+
+      echo hello1
+      echo hello2
+      echo hello3
+      echoXX hello4
+
+You would execute this file of commands on your computing grid like so:
+
+     hpc_cmds_GridRunner.pl -c myCommands.txt -G /path/to/grid.conf
+
+Your grid.conf file could be set up to have 'cmds_per_node=1', such that each command line in that text file will be launched on a different compute node.
+
+The results would look like so:
+
+   bhaas@tin $ ~/GITHUB/HpcGridRunner/hpc_cmds_GridRunner.pl  -c ./myCommands.txt -G ~/GITHUB/HpcGridRunner/hpc_conf/BroadInst_LSF.hour.1.conf 
+   SERVER: tin.broadinstitute.org, PID: 24527 
+    $VAR1 = {
+          'mount_test' => 'T',
+          'grid' => 'LSF',
+          'cmd' => 'bsub -q hour -W 4:0 -R "rusage[mem=10]"',
+          'max_nodes' => '500',
+          'cmds_per_node' => '1'
+        };
+   CMDS: 4 / 4  [4/500 nodes in use]   
+   * All cmds submitted to grid.  Now waiting for them to finish.
+
+   Failures encountered:
+   num_success: 3  num_fail: 1     num_unknown: 0
+   Finished.
+
+   1 commands failed during grid computing.
+   -failed commands written to: ./myCommands.txt.hpc-cache_success.__failures
+
+   Error, not all commands could complete successfully... cannot continue.
+
+I see that 1 of the jobs failed, and check the contents of the corresponding file mentioned directly above:
+
+  bhaas@tin $ cat ./myCommands.txt.hpc-cache_success.__failures 
+      echoXX hello4
+
+
+and it's clear that my command 'echoXX hello4' failed...  and of course, I made that command to fail on purpose as there is no echoXX command, and so this serves to demonstrate what to expect when you have some subset of jobs that fail in execution.  
+
+
+== Another example, more complex unix commands ==
+
+I have another file containing a set of unix commands, and they're slightly more complicated in that they include multiple piped-together commands and we want to capture the output.
+
+My 'commands_ex2.txt' file has the following commands:
+
+   echo a | wc -c > a.len
+   echo ab | wc -c > ab.len
+   echo abc | wc -c > abc.len
+   echo hello world | wc > h.whatever
+
+Running the system:
+
+   bhaas@tin $ ~/GITHUB/HpcGridRunner/hpc_cmds_GridRunner.pl  -c ./commands_ex2.txt -G ~/GITHUB/HpcGridRunner/hpc_conf/BroadInst_LSF.hour.1.conf 
+   SERVER: tin.broadinstitute.org, PID: 19267
+   $VAR1 = {
+          'mount_test' => 'T',
+          'grid' => 'LSF',
+          'cmd' => 'bsub -q hour -W 4:0 -R "rusage[mem=10]"',
+          'max_nodes' => '500',
+          'cmds_per_node' => '1'
+        };
+  CMDS: 4 / 4  [4/500 nodes in use]   
+  * All cmds submitted to grid.  Now waiting for them to finish.
+  CMDS: 4 / 4  [0/500 nodes in use]   
+  * All nodes completed.  Now auditing job completion status values
+  All commands completed successfully.
+  Finished.
+
+  All commands completed successfully on the computing grid.
+
+This time, each command completed successfully.  If I look at the contents of my working directory, I see that files were generated according to the commands above:
+
+  -rw-rw-rw- 1 bhaas broad    2 Jan 26 10:37 ab.len
+  -rw-rw-rw- 1 bhaas broad    2 Jan 26 10:37 abc.len
+  -rw-rw-rw- 1 bhaas broad   24 Jan 26 10:37 h.whatever
+  -rw-rw-rw- 1 bhaas broad    2 Jan 26 10:37 a.len
+
+And I can verify their contents:
+
+   bhaas@tin $ cat *len
+   2
+   3
+   4
+
+   bhaas@tin $ cat h.whatever 
+      1       2      12
+
+
+So, the system is very flexibile and is designed to execute exactly what you indicate as a unix command in your file of commands.
+
+== Using HPC GridRunner for Bioinformatics Applications ==
+
+Included with HPC GridRunner is a utility to perform similar generic processing of sequences provided in a multi-fasta file. This is enabled by the script:
+
+  ./BioIfx/hpc_FASTA_GridRunner.pl 
+
+ #######################################################################################################################
+ #
+ # Required:
+ #
+ #   --query_fasta|Q <string>       query multiFastaFile (full or relative path)
+ #
+ #   --cmd_template|T <string>      program command line template:   eg. "/path/to/prog [opts] __QUERY_FILE__ [other opts]"
+ #
+ #  --grid_conf|G <string>          grid config file (see hpc_conf/ for examples)
+ #
+ #   --seqs_per_bin|N <int>         number of sequences per partition.
+ # 
+ #   --out_dir|O <string>           output directory 
+ #
+ # Optional:
+ # 
+ #   --prep_only|X                  partion data and create cmds list, but don't launch on the grid.
+ #
+ #   --parafly                      use parafly to re-exec previously failed grid commands
+ #
+ ########################################################################################################################
+
+
+
+The '--cmd_template' parameter enables you to define a command that would be executed on each set of sequences in your input query fasta file. The sequences are batched up into smaller multi-fasta files, each containing '--seqs_per_bin' number of sequences, the command described in the '--cmd_template' is executed on that partition of sequences, and the output is stored in the '--out_dir' specified output directory.
+
+
+=== Example running BLAST ===
+
+[NOTE]
+Be sure to already have http://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs&DOC_TYPE=Download[BLAST+] installed.
+
+An example of using this to run a blastp search of a set of protein sequences might look like so.
+
+
+        ./BioIfx/hpc_FASTA_GridRunner.pl \
+        --cmd_template "blastp -query __QUERY_FILE__ -db /seq/RNASEQ/DBs/SWISSPROT/current/uniprot_sprot.fasta  -max_target_seqs 1 -outfmt 6 -evalue 1e-5" \
+        --query_fasta test.pep \
+        -G ../hpc_conf/BroadInst_LSF.test.conf \
+        -N 10 -O test_blastp_search
+
+which would report to the terminal:
+
+   Sequences to search: test_blastp_search/grp_0001/1.fa test_blastp_search/grp_0001/2.fa test_blastp_search/grp_0001/3.fa test_blastp_search/grp_0001/4.fa test_blastp_search/grp_0001/5.fa test_blastp_search/grp_0001/6.fa test_blastp_search/grp_0001/7.fa test_blastp_search/grp_0001/8.fa test_blastp_search/grp_0001/9.fa test_blastp_search/grp_0001/10.fa
+  There are 10 jobs to run.
+  $VAR1 = {
+          'mount_test' => 'T',
+          'grid' => 'LSF',
+          'cmd' => 'bsub -q regevlab -R "rusage[mem=2]" ',
+          'max_nodes' => '500',
+          'cmds_per_node' => '1'
+        };
+  CMDS: 10 / 10  [10/500 nodes in use]   
+  * All cmds submitted to grid.  Now waiting for them to finish.
+
+  CMDS: 10 / 10  [0/500 nodes in use]   
+  * All nodes completed.  Now auditing job completion status values
+  All commands completed successfully.
+  Finished.
+
+  All commands completed successfully on the computing grid.
+  SUCCESS:  all commands completed succesfully. :)
+
+
+All the output was set to be placed in a 'test_blastp_search/' directory, according to my command above.  This directory was automatically created and I can examine the contents like so:
+
+  bhaas@venustum $ find test_blastp_search
+  test_blastp_search
+  test_blastp_search/grp_0001
+  test_blastp_search/grp_0001/10.fa.ERR
+  test_blastp_search/grp_0001/2.fa
+  test_blastp_search/grp_0001/1.fa.ERR
+  test_blastp_search/grp_0001/5.fa.ERR
+  test_blastp_search/grp_0001/3.fa
+  test_blastp_search/grp_0001/8.fa.ERR
+  test_blastp_search/grp_0001/6.fa.ERR
+  test_blastp_search/grp_0001/7.fa.ERR
+  test_blastp_search/grp_0001/10.fa.OUT
+  test_blastp_search/grp_0001/3.fa.ERR
+  test_blastp_search/grp_0001/4.fa.ERR
+  test_blastp_search/grp_0001/6.fa
+  test_blastp_search/grp_0001/9.fa.ERR
+  test_blastp_search/grp_0001/7.fa.OUT 
+  test_blastp_search/grp_0001/6.fa.OUT 
+  test_blastp_search/grp_0001/4.fa.OUT
+  test_blastp_search/grp_0001/5.fa
+  test_blastp_search/grp_0001/8.fa.OUT
+  ...
+
+My original 'test.pep' multi-fasta file was partitioned into a number of .fa files shown above, with each .fa file containing 10 sequences (according to my '-N 10' parameter setting).  Blastp was executed on each .fa file, with the output captured in each .fa.OUT file, and any error messages (anything blast writes to the stderr stream) captured as .fa.ERR.
+
+To capture all my blast results and put them in a single file, I would execute the following:
+
+  find test_blastp_search -name "*.fa.OUT" -exec cat {} \; > all.blast.out
+
+and now I have a single output containing all the blast results for further study.
+
+
+
+=== Example running Pfam searches ===
+
+
+[NOTE]
+Be sure to have http://hmmer.janelia.org/[hmmer3] and ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz[Pfam] databases installed.  
+
+I can run a Pfam search like so:
+
