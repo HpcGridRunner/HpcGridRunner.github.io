@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
-<meta name="generator" content="AsciiDoc 8.6.8" />
+<meta name="generator" content="AsciiDoc 8.6.9" />
 <title>HPC GridRunner</title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
@@ -94,7 +94,9 @@ ul > li > * { color: black; }
   padding: 0;
   margin: 0;
 }
-
+pre {
+  white-space: pre-wrap;
+}
 
 #author {
   color: #527bbd;
@@ -223,7 +225,7 @@ div.exampleblock > div.content {
 }
 
 div.imageblock div.content { padding-left: 0; }
-span.image img { border-style: none; }
+span.image img { border-style: none; vertical-align: text-bottom; }
 a.image:visited { color: white; }
 
 dl {
@@ -743,7 +745,7 @@ asciidoc.install();
 <div class="sect1">
 <h2 id="_installing_hpc_gridrunner">Installing HPC GridRunner</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Download HPC GridRunner <a href="https://github.com/HpcGridRunner/HpcGridRunner.github.io/releases">here</a>.</p></div>
+<div class="paragraph"><p>Download HPC GridRunner <a href="https://github.com/HpcGridRunner/HpcGridRunner/releases">here</a>.</p></div>
 <div class="paragraph"><p>The system runs as a set of Perl scripts, so there&#8217;s no need to compile anything.</p></div>
 <div class="paragraph"><p>Additional support is included to leverage <a href="http://parafly.sourceforge.net/">ParaFly</a> to attempt to re-execute any grid-failed commands locally (from within the HpcGridRunner process instead of on the computing grid node where jobs were dispatched).  This is useful in cases where some small subset of grid jobs might time-out or need more RAM than allocated on the grid node. If you want to leverage this option, be sure to also install <a href="http://parafly.sourceforge.net/">ParaFly</a>.</p></div>
 </div>
@@ -1152,7 +1154,7 @@ test_pfam_search/grp_0001/9.fa.domtblout
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2015-01-26 11:17:24 EST
+Last updated 2015-03-25 21:49:50 EDT
 </div>
 </div>
 </body>
