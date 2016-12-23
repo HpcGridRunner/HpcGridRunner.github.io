@@ -6,7 +6,7 @@ HPC GridRunner includes generic support for Bioinformatics applications (see bel
 
 == Installing HPC GridRunner ==
 
-Download HPC GridRunner https://github.com/HpcGridRunner/HpcGridRunner.github.io/releases[here].
+Download HPC GridRunner https://github.com/HpcGridRunner/HpcGridRunner/releases[here].
 
 The system runs as a set of Perl scripts, so there's no need to compile anything.
 
