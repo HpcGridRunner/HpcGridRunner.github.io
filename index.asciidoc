@@ -16,7 +16,7 @@ Additional support is included to leverage http://parafly.sourceforge.net/[ParaF
 
 HPC GridRunner uses a configuration file system to determine how to interact with your grid computing platform.  Example configuration files can be found in the included 'hpc_conf/' directory.  Each conf file includes just a handful of attributes that enable the system to work, including:
 
-* grid : the type of grid computing platform being used. (LSF, SGE, PBS, or SLURM)  See an example conf for your system.
+* gridtype : the type of grid computing platform being used. (LSF, SGE, PBS, or SLURM)  See an example conf for your system.
 * cmd : the basic structure of a job submission (ie. using qsub or bsub), indicating the queue to submit to, memory cap, walltime, etc., basically everything that would show up in your command line to submit the job to the grid sans the actual command that would be executed on the node.
 * max_nodes : the maximum number of nodes to try to leverage simultaneously on your grid platform. You might set this to a low number if you dont want to oversubscribe to resources, particularly if you have high-RAM requirements.  This is up to you. You could leave it as a high number and just let the grid platform itself determine how many jobs should RUN vs. PEND.  The total (RUN+PEND) will equal this max_nodes parameter.
 * cmds_per_node : your unix commands to be run by HPC GridRunner will be batched according to this number of commands per job submission.  So, if you set this to 100, then all 100 commands will be submitted in a single bsub or qsub to the grid. Note, although they are batched, each command will be separately monitored by HPC GridRunner for success/failure status.
@@ -26,7 +26,7 @@ The contents of an example configuration file 'hpc_conf/Broad_LSF.regev.100.conf
 
  #-------------------------------------------------------------------------------------------
  # grid type: 
- grid=LSF
+ gridtype=LSF
  
  # template for a grid submission
  cmd=bsub -q regevlab -R "rusage[mem=10]"
