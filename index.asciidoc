@@ -25,6 +25,7 @@ HPC GridRunner uses a configuration file system to determine how to interact wit
 The contents of an example configuration file 'hpc_conf/Broad_LSF.regev.100.conf' is shown below:
 
  #-------------------------------------------------------------------------------------------
+ [GRID]
  # grid type: 
  gridtype=LSF
  
